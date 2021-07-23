@@ -127,12 +127,9 @@ class Vertices:
                     line[7]+=(parent.kwak%50)**2/2500.
         file.write(pcopy.tobytes())
 
-class Faces:
+class Shapes:
     def __init__(self) -> None:
-        self.amount=0
-        #self.__store=[]
-        self.indices=[]
-        self.materialIndice=[]
+        self._shapes=[]
     def loadFrom(self,file:BufferedReader,parent:'Model'):
         if toUint(file.read(1))!=73:
             print("[Warning] file may contain errors {faces marker wrong}")
@@ -141,17 +138,29 @@ class Faces:
             _store=rfn.structured_to_unstructured(np.frombuffer(file.read(14*self.amount),np.dtype("<u4,<u4,<u4,<u2")),dtype=np.dtype("<u4"))#.reshape(self.amount,4)
         else:
             _store=np.frombuffer(file.read(8*self.amount),np.dtype("<u2")).reshape(self.amount,4)
-        #x=
-        #np.split(x, np.where(np.diff(x[:,3]))[0]+1)
-        self.indices=_store[:,:3]
-        self.materialIndice=_store[:,3:4]
+        #self.materialIndices=np.unique(_store[:,3])
+        #self._shapes=[_store[_store[:,3]==i,:-1] for i in self.materialIndices]
+        materialindices=np.unique(_store[:,3])
+        self._shapes=[_store[_store[:,3]==i,:-1] for i in materialindices]
+    def __getitem__(self,matIndice:int)->np.ndarray:
+        #return self._shapes[self.materialIndices.index(key)]
+        return self._shapes[matIndice]
     def __str__(self):
-        return str(np.c_[self.indices,self.materialIndice])
+        _result=''
+        for i in self._shapes:
+            _result+=f'Shape[{self._shapes.index(i)}]:\n{i}\n'
+        return _result
+    def getFacesAmount(self):
+        _result=0
+        for _ in self._shapes:
+            _result+=len(_)
+        return _result
     def writeTo(self,file:BufferedWriter,parent:'Model'):
         file.write(fromUint(73,1))
-        pcopy=np.c_[self.indices,self.materialIndice]
-        file.write(fromUint(pcopy.shape[0],2 if parent.version<3 else 4))
-        file.write(rfn.unstructured_to_structured(pcopy,np.dtype("<u4,<u4,<u4,<u2") if parent.f1 else np.dtype("<u2,<u2,<u2,<u2")).tobytes())
+        file.write(fromUint(self.getFacesAmount(),2 if parent.version<3 else 4))
+        for _ in self._shapes:
+            pcopy=np.c_[_,[self._shapes.index(_)]*len(_)]
+            file.write(rfn.unstructured_to_structured(pcopy,np.dtype("<u4,<u4,<u4,<u2") if parent.f1 else np.dtype("<u2,<u2,<u2,<u2")).tobytes())
 
 class Materials:
     def __init__(self) -> None:
@@ -214,7 +223,7 @@ class Model:
         self.udata=4294967295
         self._update_fields()
         self.vertices=Vertices()
-        self.faces=Faces()
+        self.shapes=Shapes()
         self.materials=Materials()
         self.matrix=Matrix()
 
@@ -237,7 +246,7 @@ class Model:
 
                 self.vertices.loadFrom(f,self)#8x4(float)
 
-                self.faces.loadFrom(f,self)#4x2(ushort)
+                self.shapes.loadFrom(f,self)#4x2(ushort)
 
                 self.materials.loadFrom(f)
                 
@@ -257,7 +266,7 @@ class Model:
         self.info()
         print(self.materials)
         print(self.vertices)
-        print(self.faces)
+        print(self.shapes)
         print(self.matrix)
 
     def writeTo(self,filename,version,flag1:bool,flag2:bool,key):
@@ -265,7 +274,7 @@ class Model:
             file.write(fromUint(6532,2))
             file.write(fromUint(version,1))
             #protection
-            if self.faces.amount>4294967295 and (flag1==False or version<3):
+            if self.shapes.getFacesAmount()>4294967295 and (flag1==False or version<3):
                 if version<3:
                     version=3
                 flag1=True
@@ -296,7 +305,7 @@ class Model:
                     file.write(fromUint(self.udata,4))
 
             self.vertices.writeTo(file,self)
-            self.faces.writeTo(file,self)
+            self.shapes.writeTo(file,self)
             self.materials.writeTo(file)
             self.matrix.writeTo(file)
 
