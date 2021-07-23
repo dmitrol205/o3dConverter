@@ -33,7 +33,7 @@ class O3dConvWaveFront(Model):
                 file.write(f'\nvn {i[0]:.6f} {i[1]:.6f} {i[2]:.6f}')
             for i in self.vertices.texcoords:
                 file.write(f'\nvt {i[0]:.6f} {1-i[1]:.6f}')
-            faces=np.c_[self.faces.indices+1,self.faces.texIndice]#.astype(np.dtype('<u4'))
+            faces=np.c_[self.faces.indices+1,self.faces.materialIndice]#.astype(np.dtype('<u4'))
             for i in range(self.materials.amount):
                 file.write('\nusemtl Material_'+str(i+1))
                 for o in faces:
@@ -348,7 +348,7 @@ class O3dConvWaveFront(Model):
                     return False
                 adv_face.append(u)
                 self.faces.indices.append(o)
-                self.faces.texIndice.append(currentmaterial)
+                self.faces.materialIndice.append(currentmaterial)
                 if not( i.exact_type==4 or i.exact_type==58 or i.exact_type==0):nn()
                 return True
             strucs={
@@ -396,7 +396,7 @@ class O3dConvWaveFront(Model):
                     self.vertices.normals[i[0]]=nc[i[2]]
                     self.vertices.texcoords[i[0]]=tc[i[1]]
             self.faces.indices=np.array(self.faces.indices,dtype=np.dtype('<u4'))
-            self.faces.texIndice=np.array(self.faces.texIndice,dtype=np.dtype('<u4')).reshape((self.faces.amount,1))
+            self.faces.materialIndice=np.array(self.faces.materialIndice,dtype=np.dtype('<u4')).reshape((self.faces.amount,1))
             self.faces.indices-=1
             #self.points.coords=np.c_[self.points.coords[:,0],self.points.coords[:,2],self.points.coords[:,1]].copy()
             #self.points.normals=np.c_[self.points.normals[:,0],self.points.normals[:,2],self.points.normals[:,1]].copy()
@@ -404,7 +404,7 @@ class O3dConvWaveFront(Model):
             self.vertices.texcoords[:,1]=1.-self.vertices.texcoords[:,1]
             self.faces.indices=np.c_[self.faces.indices[:,1],self.faces.indices[:,0],self.faces.indices[:,2]].copy()
             self.vertices.__store=np.c_[self.vertices.coords,self.vertices.normals,self.vertices.texcoords].astype(np.dtype('<f4'))
-            self.faces.__store=np.c_[self.faces.indices,self.faces.texIndice].astype(np.dtype('<u4'))
+            self.faces.__store=np.c_[self.faces.indices,self.faces.materialIndice].astype(np.dtype('<u4'))
             if self.vertices.amount!=len(self.vertices.__store):
                 print("not enough vertex coords")
                 return False

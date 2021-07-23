@@ -55,7 +55,7 @@ class O3dConvX(Model):
             file.write(f"  {self.materials.amount};\n")
             file.write(f"  {self.faces.amount};\n")
             for i in range(self.faces.amount):
-                o=self.faces.texIndice[i]
+                o=self.faces.materialIndice[i]
                 file.write(f"  {o[0]}")
                 if i!=self.faces.amount-1:
                     file.write(",\n")
@@ -352,8 +352,8 @@ class O3dConvX(Model):
                     if not ss(';'):return False
                     if not ss(';'):return False
 
-                if self.faces.texIndice==[]:
-                    self.faces.texIndice=np.array(matrix,dtype=np.dtype('<u4')).reshape(fcount,1)
+                if self.faces.materialIndice==[]:
+                    self.faces.materialIndice=np.array(matrix,dtype=np.dtype('<u4')).reshape(fcount,1)
                 
                 if fmflag:
                     if not vf(): return False
@@ -476,7 +476,7 @@ class O3dConvX(Model):
             self.vertices.texcoords[:,1]=1.-self.vertices.texcoords[:,1]
             self.faces.indices=np.c_[self.faces.indices[:,1],self.faces.indices[:,0],self.faces.indices[:,2]].copy()
             self.vertices.__store=np.c_[self.vertices.coords,self.vertices.normals,self.vertices.texcoords]
-            self.faces.__store=np.c_[self.faces.indices,self.faces.texIndice]
+            self.faces.__store=np.c_[self.faces.indices,self.faces.materialIndice]
             if self.matrix==[]:
                 self.matrix=np.array([[1.,0.,0.,0.],[0.,1.,0.,0.],[0.,0.,1.,0.],[0.,0.,0.,1.]],dtype=np.dtype('<f4'))
             if True:pass                
