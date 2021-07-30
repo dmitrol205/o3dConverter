@@ -23,7 +23,7 @@ class Vertices:
         if toUint(file.read(1))!=23:
             print("[Warning] file may contain errors {points marker wrong}")
         self.amount=toUint(file.read(2)) if parent.version<3 else toUint(file.read(4))
-        _store=np.frombuffer(file.read(32*self.amount),np.dtype("<f4")).reshape(self.amount,8)
+        _store=np.frombuffer(file.read(32*self.amount),np.dtype("<f4")).reshape(self.amount,8).copy()
         if parent.udCorrect:               
             zinit=0
             parent.kwak=np.dtype("<u2").type(parent.kwak)
@@ -147,8 +147,8 @@ class Shapes:
         return self._shapes[matIndice]
     def __str__(self):
         _result=''
-        for i in self._shapes:
-            _result+=f'Shape[{self._shapes.index(i)}]:\n{i}\n'
+        for k,v in enumerate(self._shapes):
+            _result+=f'Shape[{k}]:\n{v}\n'
         return _result
     def getFacesAmount(self):
         _result=0
@@ -162,34 +162,56 @@ class Shapes:
             pcopy=np.c_[_,[self._shapes.index(_)]*len(_)]
             file.write(rfn.unstructured_to_structured(pcopy,np.dtype("<u4,<u4,<u4,<u2") if parent.f1 else np.dtype("<u2,<u2,<u2,<u2")).tobytes())
 
+class Material:
+    def __init__(self,fc=np.zeros(4,dtype=np.dtype('<f4')),sc=np.zeros(3,dtype=np.dtype('<f4')),ec=np.zeros(3,dtype=np.dtype('<f4')),p=np.zeros(1,dtype=np.dtype('<f4'))[0],n=''):
+        self.faceColor=fc
+        self.specularColor=sc
+        self.emissiveColor=ec
+        self.power=p
+        self.fileName:str=n
+
 class Materials:
     def __init__(self) -> None:
-        self.amount=0
-        self.fdata:list[np.ndarray]=[]
-        self.names:list[str]=[]
+        self._data=[]
+    
     def loadFrom(self,file:BufferedReader) -> None:
         if toUint(file.read(1))!=38:
             print("[Warning] file may contain errors {textures marker wrong}")
-        self.amount=toUint(file.read(2))
-        self.names=[]
-        self.fdata=[]#(diff?)faceColor(RGBA)specularColor(RGB)emissiveColor(RGB)power(float)
-        for _ in range(self.amount):
-            self.fdata.append(np.frombuffer(file.read(44),np.dtype("<f4")))#11x4(float)
-            self.names.append(file.read(toUint(file.read(1))).decode(encoding=sys.getdefaultencoding()))
+        self._data=[]
+        for _ in range(toUint(file.read(2))):
+            fdata=np.frombuffer(file.read(44),np.dtype("<f4"))#11x4(float)#faceColor(RGBA)specularColor(RGB)emissiveColor(RGB)power(float)
+            self._data.append(Material(fdata[:4],fdata[4:7],fdata[7:10],fdata[10],file.read(toUint(file.read(1))).decode(encoding=sys.getdefaultencoding())))
+    
+    @property
+    def amount(self):
+        return len(self._data)
+
+    def __getitem__(self,key)->Material:
+        return self._data[key]
+    
     def writeTo(self,file:BufferedWriter):
         file.write(fromUint(38,1))
         file.write(fromUint(self.amount,2))
         for i in range(self.amount):
-            file.write(self.fdata[i].tobytes())
-            encodedString=self.names[i].encode(encoding=sys.getdefaultencoding())
+            mat=self[i]
+            file.write(np.r_[mat.faceColor,mat.specularColor,mat.emissiveColor,mat.power].tobytes())
+            encodedString=mat.fileName.encode(encoding=sys.getdefaultencoding())
             file.write(fromUint(len(encodedString),1))
             file.write(encodedString)
+
     def __str__(self):
         _result=""
         for i in range(self.amount):
-            fd=self.fdata[i]
-            _result+=f"Material[{i}]:\n\tface color: {fd[:4]}\n\tspecular color: {fd[4:7]}\n\temissive color: {fd[7:10]}\n\tpower: {fd[10]}\n\ttexture: {self.names[i]}\n"
+            mat=self[i]
+            _result+=(
+                f"Material[{i}]:\n"
+                f"\tface color: {mat.faceColor}\n"
+                f"\tspecular color: {mat.specularColor}\n"
+                f"\temissive color: {mat.emissiveColor}\n"
+                f"\tpower: {mat.power}\n"
+                f"\ttexture: {mat.fileName}\n")
         return _result
+
 class Matrix:
     def __init__(self) -> None:
         self.data=[]
@@ -263,11 +285,20 @@ class Model:
                 print(f"key:0x{self.udata:016X}")
 
     def extendedInfo(self):
-        self.info()
-        print(self.materials)
-        print(self.vertices)
-        print(self.shapes)
-        print(self.matrix)
+        #__savestate=np.get_printoptions()
+        with np.set_printoptions(
+            threshold=sys.maxsize,
+            formatter={'float_kind':'{:10.6f}'.format},
+            #linewidth=sys.maxsize,
+            linewidth=np.inf,
+            #edgeitems=sys.maxsize
+        ):    
+            self.info()
+            print(self.materials)
+            print(self.vertices)
+            print(self.shapes)
+            print(self.matrix)
+        #np.set_printoptions(**__savestate)
 
     def writeTo(self,filename,version,flag1:bool,flag2:bool,key):
         with open(filename,'wb')as file:
@@ -311,7 +342,8 @@ class Model:
 
     
 def main():
-    filename="D:\\Program Files (x86)\\OMSI 2.2.027\\Vehicles\\A3\\model\\A3_Rollband.o3d"
+    #filename="D:\\Program Files (x86)\\OMSI 2.2.027\\Vehicles\\A3\\model\\A3_Rollband.o3d"
+    filename=r'D:\Program Files (x86)\OMSI 2.2.027\Vehicles\man_nl_ng\model\EN92\EN92_tuer_VV.o3d'
     #filename=sys.argv[1]
     #os.system('pause')
     obj=Model()
